@@ -1,161 +1,60 @@
-import pyrogram
-from pyrogram import Client,filters
-from pyrogram.types import InlineKeyboardMarkup,InlineKeyboardButton
-from os import environ, remove
-from threading import Thread
-from json import load
-from re import search
+import requests
+from bs4 import BeautifulSoup
+import sys
 
-from texts import HELP_TEXT
-import bypasser
-import freewall
-from time import time
+def scrape_hdhub4u(url):
+    print(f"Scraping {url}...")
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
 
-
-# bot
-with open('config.json', 'r') as f: DATA = load(f)
-def getenv(var): return environ.get(var) or DATA.get(var, None)
-
-bot_token = getenv("TOKEN")
-api_hash = getenv("HASH") 
-api_id = getenv("ID")
-app = Client("my_bot",api_id=api_id, api_hash=api_hash,bot_token=bot_token)  
-
-
-# handle ineex
-def handleIndex(ele,message,msg):
-    result = bypasser.scrapeIndex(ele)
-    try: app.delete_messages(message.chat.id, msg.id)
-    except: pass
-    for page in result: app.send_message(message.chat.id, page, reply_to_message_id=message.id, disable_web_page_preview=True)
-
-
-# loop thread
-def loopthread(message,otherss=False):
-
-    urls = []
-    if otherss: texts = message.caption
-    else: texts = message.text
-
-    if texts in [None,""]: return
-    for ele in texts.split():
-        if "http://" in ele or "https://" in ele:
-            urls.append(ele)
-    if len(urls) == 0: return
-
-    if bypasser.ispresent(bypasser.ddl.ddllist,urls[0]):
-        msg = app.send_message(message.chat.id, "⚡ __generating...__", reply_to_message_id=message.id)
-    elif freewall.pass_paywall(urls[0], check=True):
-        msg = app.send_message(message.chat.id, "🕴️ __jumping the wall...__", reply_to_message_id=message.id)
-    else:
-        if "https://olamovies" in urls[0] or "https://psa.wf/" in urls[0]:
-            msg = app.send_message(message.chat.id, "⏳ __this might take some time...__", reply_to_message_id=message.id)
-        else:
-            msg = app.send_message(message.chat.id, "🔎 __bypassing...__", reply_to_message_id=message.id)
-
-    strt = time()
-    links = ""
-    temp = None
-    for ele in urls:
-        if search(r"https?:\/\/(?:[\w.-]+)?\.\w+\/\d+:", ele):
-            handleIndex(ele,message,msg)
-            return
-        elif bypasser.ispresent(bypasser.ddl.ddllist,ele):
-            try: temp = bypasser.ddl.direct_link_generator(ele)
-            except Exception as e: temp = "**Error**: " + str(e)
-        elif freewall.pass_paywall(ele, check=True):
-            freefile = freewall.pass_paywall(ele)
-            if freefile:
-                try: 
-                    app.send_document(message.chat.id, freefile, reply_to_message_id=message.id)
-                    remove(freefile)
-                    app.delete_messages(message.chat.id,[msg.id])
-                    return
-                except: pass
-            else: app.send_message(message.chat.id, "__Failed to Jump", reply_to_message_id=message.id)
-        else:    
-            try: temp = bypasser.shortners(ele)
-            except Exception as e: temp = "**Error**: " + str(e)
-        print("bypassed:",temp)
-        if temp != None: links = links + temp + "\n"
-    end = time()
-    print("Took " + "{:.2f}".format(end-strt) + "sec")
-
-    if otherss:
-        try:
-            app.send_photo(message.chat.id, message.photo.file_id, f'__{links}__', reply_to_message_id=message.id)
-            app.delete_messages(message.chat.id,[msg.id])
-            return
-        except: pass
-
-    try: 
-        final = []
-        tmp = ""
-        for ele in links.split("\n"):
-            tmp += ele + "\n"
-            if len(tmp) > 4000:
-                final.append(tmp)
-                tmp = ""
-        final.append(tmp)
-        app.delete_messages(message.chat.id, msg.id)
-        tmsgid = message.id
-        for ele in final:
-            tmsg = app.send_message(message.chat.id, f'__{ele}__',reply_to_message_id=tmsgid, disable_web_page_preview=True)
-            tmsgid = tmsg.id
-    except Exception as e:
-        app.send_message(message.chat.id, f"__Failed to Bypass : {e}__", reply_to_message_id=message.id)
-        
-
-
-# start command
-@app.on_message(filters.command(["start"]))
-def send_start(client: pyrogram.client.Client, message: pyrogram.types.messages_and_media.message.Message):
-    app.send_message(message.chat.id, f"__👋 Hi **{message.from_user.mention}**, i am Link Bypasser Bot, just send me any supported links and i will you get you results.\nCheckout /help to Read More__",
-    reply_markup=InlineKeyboardMarkup([
-        [ InlineKeyboardButton("🌐 DEVELOPER", url="https://t.me/TechByMuizOfficial")],
-        [ InlineKeyboardButton("🔥CHANNEL", url="https://t.me/Tech_Muiz_Official") ]]), 
-        reply_to_message_id=message.id)
-
-
-# help command
-@app.on_message(filters.command(["help"]))
-def send_help(client: pyrogram.client.Client, message: pyrogram.types.messages_and_media.message.Message):
-    app.send_message(message.chat.id, HELP_TEXT, reply_to_message_id=message.id, disable_web_page_preview=True)
-
-
-# links
-@app.on_message(filters.text)
-def receive(client: pyrogram.client.Client, message: pyrogram.types.messages_and_media.message.Message):
-    bypass = Thread(target=lambda:loopthread(message),daemon=True)
-    bypass.start()
-
-
-# doc thread
-def docthread(message):
-    msg = app.send_message(message.chat.id, "🔎 __bypassing...__", reply_to_message_id=message.id)
-    print("sent DLC file")
-    file = app.download_media(message)
-    dlccont = open(file,"r").read()
-    links = bypasser.getlinks(dlccont)
-    app.edit_message_text(message.chat.id, msg.id, f'__{links}__', disable_web_page_preview=True)
-    remove(file)
-
-
-# files
-@app.on_message([filters.document,filters.photo,filters.video])
-def docfile(client: pyrogram.client.Client, message: pyrogram.types.messages_and_media.message.Message):
-    
     try:
-        if message.document.file_name.endswith("dlc"):
-            bypass = Thread(target=lambda:docthread(message),daemon=True)
-            bypass.start()
-            return
-    except: pass
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching the URL: {e}")
+        return
 
-    bypass = Thread(target=lambda:loopthread(message,True),daemon=True)
-    bypass.start()
+    soup = BeautifulSoup(response.content, 'lxml')
 
+    # Locate the download links
+    # Based on the HTML structure seen:
+    # <h3><a href="...">480p...</a></h3>
+    # <h4><a href="...">720p...</a></h4>
+    # They seem to be in h3 or h4 tags, and the text contains the quality.
 
-# server loop
-print("Bot Starting")
-app.run()
+    links = []
+
+    # We look for all 'a' tags
+    for a_tag in soup.find_all('a', href=True):
+        text = a_tag.get_text().strip()
+        href = a_tag['href']
+
+        # Filter for quality indicators
+        if any(q in text.lower() for q in ['480p', '720p', '1080p']):
+            # Filter out some unrelated links if necessary (like "Watch Online" if not desired, but user asked for download links)
+            # The structure showed links like "480p⚡[500MB]" or "720p 10bit HEVC [910MB]"
+
+            # We want to avoid category links like "720p Movies" in the footer/sidebar if they exist
+            # The download links in the example were inside h3/h4 tags with style="text-align: center;"
+
+            # Let's check if the parent is a header tag or p tag which is common for these sites
+            parent = a_tag.parent
+            if parent.name in ['h2', 'h3', 'h4', 'p', 'strong', 'em']:
+                 links.append({'text': text, 'link': href})
+
+    if not links:
+        print("No download links found.")
+        return
+
+    print(f"Found {len(links)} links:")
+    for link in links:
+        print(f"{link['text']}: {link['link']}")
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        url = sys.argv[1]
+    else:
+        url = input("Enter Hdhub4u movie link: ")
+
+    scrape_hdhub4u(url)
