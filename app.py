@@ -3,13 +3,10 @@ import bypasser
 import re
 import os
 import freewall
+import core
 
 
 app = Flask(__name__)
-
-
-def handle_index(ele):
-    return bypasser.scrapeIndex(ele)
 
 
 def store_shortened_links(link):
@@ -17,46 +14,14 @@ def store_shortened_links(link):
         file.write(link + '\n')
 
 
-def loop_thread(url):
-    urls = []
-    urls.append(url)
-
-    if not url:
-        return None
-
-    link = ""
-    temp = None
-    for ele in urls:
-        if re.search(r"https?:\/\/(?:[\w.-]+)?\.\w+\/\d+:", ele):
-            handle_index(ele)
-        elif bypasser.ispresent(bypasser.ddl.ddllist, ele):
-            try:
-                temp = bypasser.ddl.direct_link_generator(ele)
-            except Exception as e:
-                temp = "**Error**: " + str(e)
-        elif freewall.pass_paywall(ele, check=True):
-            freefile = freewall.pass_paywall(ele)
-            if freefile:
-                try: return send_file(freefile)
-                except: pass
-        else:
-            try:
-                temp = bypasser.shortners(ele)
-            except Exception as e:
-                temp = "**Error**: " + str(e)
-        print("bypassed:", temp)
-        if temp:
-            link = link + temp + "\n\n"
-
-    return link
-
-
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
         url = request.form.get("url")
-        result = loop_thread(url)
-        if freewall.pass_paywall(url, check=True): return result
+        result = core.loop_thread(url)
+        if freewall.pass_paywall(url, check=True):
+            try: return send_file(result)
+            except: return result
         
         shortened_links = request.cookies.get('shortened_links')
         if shortened_links:

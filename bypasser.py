@@ -15,7 +15,11 @@ from cfscrape import create_scraper
 from json import load
 from os import environ
 
-with open('config.json', 'r') as f: DATA = load(f)
+try:
+    with open('config.json', 'r') as f: DATA = load(f)
+except FileNotFoundError:
+    DATA = {}
+
 def getenv(var): return environ.get(var) or DATA.get(var, None)
 
 

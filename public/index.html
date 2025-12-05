@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Link Bypasser</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 600px;
+        }
+        h1 {
+            text-align: center;
+            color: #0070f3;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        input[type="text"] {
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        button {
+            background-color: #0070f3;
+            color: white;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #0051a2;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        #result {
+            margin-top: 1.5rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+            background: #f9fafb;
+            padding: 1rem;
+            border-radius: 4px;
+            border: 1px solid #eee;
+            display: none;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Link Bypasser</h1>
+        <form id="bypassForm">
+            <input type="text" id="urlInput" placeholder="Enter URL to bypass..." required>
+            <button type="submit" id="submitBtn">Bypass</button>
+        </form>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById('bypassForm');
+        const urlInput = document.getElementById('urlInput');
+        const resultDiv = document.getElementById('result');
+        const submitBtn = document.getElementById('submitBtn');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const url = urlInput.value.trim();
+            if (!url) return;
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Bypassing...';
+            resultDiv.style.display = 'none';
+            resultDiv.textContent = '';
+            resultDiv.className = '';
+
+            try {
+                const response = await fetch('/api/bypass', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ url })
+                });
+
+                const contentType = response.headers.get("content-type");
+
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    const data = await response.json();
+                    if (response.ok) {
+                        if (data.result) {
+                            resultDiv.textContent = data.result;
+                        } else if (data.error) {
+                            resultDiv.textContent = 'Error: ' + data.error;
+                            resultDiv.className = 'error';
+                        } else {
+                            resultDiv.textContent = 'No result returned.';
+                        }
+                    } else {
+                        resultDiv.textContent = 'Error: ' + (data.error || 'Something went wrong');
+                        resultDiv.className = 'error';
+                    }
+                } else {
+                    // Assume it's a file download (blob)
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        const downloadUrl = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = downloadUrl;
+                        // Try to get filename from content-disposition
+                        const disposition = response.headers.get('Content-Disposition');
+                        let filename = 'downloaded_file';
+                        if (disposition && disposition.indexOf('filename=') !== -1) {
+                            const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+                            const matches = filenameRegex.exec(disposition);
+                            if (matches != null && matches[1]) {
+                                filename = matches[1].replace(/['"]/g, '');
+                            }
+                        }
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        window.URL.revokeObjectURL(downloadUrl);
+                        resultDiv.textContent = "File downloaded: " + filename;
+                    } else {
+                         const text = await response.text();
+                         resultDiv.textContent = 'Error: ' + text;
+                         resultDiv.className = 'error';
+                    }
+                }
+
+            } catch (error) {
+                resultDiv.textContent = 'Network Error: ' + error.message;
+                resultDiv.className = 'error';
+            } finally {
+                resultDiv.style.display = 'block';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Bypass';
+            }
+        });
+    </script>
+</body>
+</html>
