@@ -21,7 +21,11 @@ def scrape_hdhub4u(url):
         print(f"Error fetching the URL: {e}")
         return []
 
-    soup = BeautifulSoup(response.content, 'lxml')
+    try:
+        soup = BeautifulSoup(response.content, 'lxml')
+    except Exception as e:
+        print(f"lxml parser failed: {e}. Falling back to html.parser.")
+        soup = BeautifulSoup(response.content, 'html.parser')
 
     links = []
 
@@ -58,7 +62,11 @@ def bypass_hubdrive(url):
         response = session.get(url)
         response.raise_for_status()
 
-        soup = BeautifulSoup(response.content, 'lxml')
+        try:
+            soup = BeautifulSoup(response.content, 'lxml')
+        except Exception as e:
+            print(f"lxml parser failed: {e}. Falling back to html.parser.")
+            soup = BeautifulSoup(response.content, 'html.parser')
 
         # Extract the ID
         down_id_div = soup.find('div', id='down-id')

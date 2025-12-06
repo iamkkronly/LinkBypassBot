@@ -98,7 +98,11 @@ def scrape_hblinks_page(url, visited=None):
     try:
         response = requests.get(url, headers=headers)
         response.raise_for_status()
-        soup = BeautifulSoup(response.content, 'lxml')
+        try:
+            soup = BeautifulSoup(response.content, 'lxml')
+        except Exception as e:
+            print(f"lxml parser failed: {e}. Falling back to html.parser.")
+            soup = BeautifulSoup(response.content, 'html.parser')
 
         # Extract Title
         title_tag = soup.find('h1', class_='entry-title')

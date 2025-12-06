@@ -67,7 +67,12 @@ def bypass_hubcdn_link(url):
         response.raise_for_status()
 
         # Step 6: Extract the direct download link from <a id="vd">
-        soup = BeautifulSoup(response.content, 'lxml')
+        try:
+            soup = BeautifulSoup(response.content, 'lxml')
+        except Exception as e:
+            print(f"lxml parser failed: {e}. Falling back to html.parser.")
+            soup = BeautifulSoup(response.content, 'html.parser')
+
         a_tag = soup.find('a', id='vd')
 
         if a_tag and a_tag.get('href'):
