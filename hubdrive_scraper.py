@@ -33,7 +33,7 @@ def scrape_hdhub4u(url):
         # Filter for quality indicators and ensure it's a Hubdrive link
         # Note: The original main.py filtered for quality in text, but we also want to ensure it's a link we can process.
         # But maybe the links on Hdhub4u ARE Hubdrive links (or redirect to them).
-        if any(q in text.lower() for q in ['480p', '720p', '1080p']):
+        if any(q in text.lower() for q in ['480p', '720p', '1080p', 'episode']):
             # We store the link and the text (quality)
             links.append({'quality': text, 'link': href})
 
@@ -144,7 +144,7 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         url = sys.argv[1]
     else:
-        default_link = "https://hubdrive.space/file/2539912635"
+        default_link = "https://hdhub4u.rehab/bigg-boss-season-19-hindi-webrip-all-episodes/"
         url = input(f"Enter Hubdrive link or Movie Page URL (default: {default_link}): ") or default_link
 
     process_url(url)
