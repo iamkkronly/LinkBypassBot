@@ -25,9 +25,12 @@ def scrape_hdhub4u(url):
         href = a_tag['href']
 
         # Filter for quality indicators
-        if any(q in text.lower() for q in ['480p', '720p', '1080p']):
+        if any(q in text.lower() for q in ['480p', '720p', '1080p', 'episode']):
             parent = a_tag.parent
-            if parent.name in ['h2', 'h3', 'h4', 'p', 'strong', 'em']:
+            valid_parents = ['h2', 'h3', 'h4', 'p', 'strong', 'em']
+            if parent.name in valid_parents:
+                 links.append({'text': text, 'link': href})
+            elif parent.name == 'span' and parent.parent and parent.parent.name in valid_parents:
                  links.append({'text': text, 'link': href})
 
     if not links:
