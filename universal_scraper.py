@@ -29,6 +29,8 @@ class UniversalScraper:
             return self.handle_hubcdn(url)
         elif "gofile.io" in domain:
             return self.handle_gofile(url)
+        elif "vplink.in" in domain:
+            return self.handle_vplink(url)
         else:
             print(f"Unknown domain: {domain}. Trying generic scrape or Hdhub4u logic.")
             return self.handle_generic_movie_page(url)
@@ -213,6 +215,34 @@ class UniversalScraper:
         except Exception as e:
             print(f"Error handling GoFile: {e}")
             return [{'text': 'GoFile Link', 'link': url}]
+
+    def handle_vplink(self, url):
+        print("Detected vplink.in URL.")
+        try:
+            # Import here to avoid top-level issues if file is missing
+            try:
+                from vplink_scraper import bypass_vplink
+            except ImportError:
+                print("vplink_scraper module not found.")
+                return []
+
+            result = bypass_vplink(url)
+            if result:
+                # The result might be another scrapable URL
+                print(f"Resolved vplink to: {result}")
+
+                # Check if it's a known domain and recurse
+                domain = urlparse(result).netloc
+                if "hubcloud" in domain or "hubdrive" in domain or "hubcdn" in domain or "gofile.io" in domain:
+                    return self.scrape(result)
+                else:
+                    return [{'text': 'Direct Link', 'link': result}]
+            else:
+                return []
+
+        except Exception as e:
+            print(f"Error handling vplink: {e}")
+            return []
 
     def handle_generic_movie_page(self, url):
         print("Attempting to scrape as movie page.")
