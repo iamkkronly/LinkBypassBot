@@ -5,11 +5,11 @@ import sys
 from urllib.parse import urlparse, parse_qs
 from bs4 import BeautifulSoup
 
-# Import the scraper from main.py
+# Import the scraper from hdhub4u_scraper.py
 try:
-    from main import scrape_hdhub4u
+    from hdhub4u_scraper import scrape_hdhub4u
 except ImportError:
-    # Fallback if main.py is not in the same directory or path issues
+    # Fallback if hdhub4u_scraper.py is not in the same directory or path issues
     def scrape_hdhub4u(url):
         print("Scraper module not found.")
         return []
