@@ -1,6 +1,8 @@
 import requests
 from bs4 import BeautifulSoup
 import sys
+from hdhub4u_scraper import scrape_hdhub4u
+from hubcdn_bypasser import process_url
 
 def search_movies(query):
     print(f"Searching for '{query}'...")
@@ -29,42 +31,6 @@ def search_movies(query):
         print(f"Error searching: {e}")
         return []
 
-def scrape_hdhub4u(url):
-    print(f"Scraping {url}...")
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-    }
-
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching the URL: {e}")
-        return []
-
-    soup = BeautifulSoup(response.content, 'lxml')
-
-    links = []
-
-    # We look for all 'a' tags
-    for a_tag in soup.find_all('a', href=True):
-        text = a_tag.get_text().strip()
-        href = a_tag['href']
-
-        # Filter for quality indicators
-        if any(q in text.lower() for q in ['480p', '720p', '1080p', 'episode']):
-            parent = a_tag.parent
-            valid_parents = ['h2', 'h3', 'h4', 'p', 'strong', 'em']
-            if parent.name in valid_parents:
-                 links.append({'text': text, 'link': href})
-            elif parent.name == 'span' and parent.parent and parent.parent.name in valid_parents:
-                 links.append({'text': text, 'link': href})
-
-    if not links:
-        print("No download links found.")
-        return []
-
-    return links
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
@@ -74,6 +40,9 @@ if __name__ == "__main__":
 
     # Check if input is a URL
     if user_input.startswith("http://") or user_input.startswith("https://"):
+        if "hubcdn.fans" in user_input:
+            process_url(user_input)
+            sys.exit(0)
         url = user_input
     else:
         # It's a search query
