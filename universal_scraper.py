@@ -79,6 +79,9 @@ class UniversalScraper:
                 elif any(q in text.lower() for q in ['480p', '720p', '1080p', 'mkv', 'zip']):
                     if href.startswith('http'):
                         links.append({'text': text, 'link': href})
+                elif "download [" in text.lower() and "]" in text:
+                    if href.startswith('http'):
+                        links.append({'text': text, 'link': href})
 
             return links
 
