@@ -47,7 +47,9 @@ def bypass_hubdrive(url):
     print(f"Bypassing Hubdrive: {url}")
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        "X-Requested-With": "XMLHttpRequest"
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": url,
+        "Origin": "https://hubdrive.space"
     }
 
     session = requests.Session()
@@ -73,6 +75,9 @@ def bypass_hubdrive(url):
         # Step 2: Make the AJAX request
         ajax_url = "https://hubdrive.space/ajax.php?ajax=direct-download"
         data = {'id': file_id}
+
+        # Ensure Content-Type is set for POST
+        session.headers.update({"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"})
 
         # print(f"Sending POST request to {ajax_url}...")
         response = session.post(ajax_url, data=data)
@@ -139,6 +144,7 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         url = sys.argv[1]
     else:
-        url = input("Enter Hubdrive link or Movie Page URL: ")
+        default_link = "https://hubdrive.space/file/2539912635"
+        url = input(f"Enter Hubdrive link or Movie Page URL (default: {default_link}): ") or default_link
 
     process_url(url)
