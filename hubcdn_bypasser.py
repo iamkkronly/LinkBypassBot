@@ -5,11 +5,18 @@ import sys
 from urllib.parse import urlparse, parse_qs
 from bs4 import BeautifulSoup
 
-# Import the scraper from main.py
+def get_soup(content):
+    try:
+        return BeautifulSoup(content, 'lxml')
+    except Exception as e:
+        print(f"lxml parsing failed ({e}). Falling back to html.parser.")
+        return BeautifulSoup(content, 'html.parser')
+
+# Import the scraper from hdhub4u_scraper.py
 try:
-    from main import scrape_hdhub4u
+    from hdhub4u_scraper import scrape_hdhub4u
 except ImportError:
-    # Fallback if main.py is not in the same directory or path issues
+    # Fallback if hdhub4u_scraper.py is not in the same directory or path issues
     def scrape_hdhub4u(url):
         print("Scraper module not found.")
         return []
@@ -67,12 +74,7 @@ def bypass_hubcdn_link(url):
         response.raise_for_status()
 
         # Step 6: Extract the direct download link from <a id="vd">
-        try:
-            soup = BeautifulSoup(response.content, 'lxml')
-        except Exception as e:
-            print(f"lxml parser failed: {e}. Falling back to html.parser.")
-            soup = BeautifulSoup(response.content, 'html.parser')
-
+        soup = get_soup(response.content)
         a_tag = soup.find('a', id='vd')
 
         if a_tag and a_tag.get('href'):

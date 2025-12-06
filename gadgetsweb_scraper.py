@@ -11,6 +11,13 @@ from urllib.parse import urljoin
 # Constants
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 
+def get_soup(content):
+    try:
+        return BeautifulSoup(content, 'lxml')
+    except Exception as e:
+        print(f"lxml parsing failed ({e}). Falling back to html.parser.")
+        return BeautifulSoup(content, 'html.parser')
+
 def rot13(s):
     return codecs.encode(s, 'rot_13')
 
@@ -98,11 +105,7 @@ def scrape_hblinks_page(url, visited=None):
     try:
         response = requests.get(url, headers=headers)
         response.raise_for_status()
-        try:
-            soup = BeautifulSoup(response.content, 'lxml')
-        except Exception as e:
-            print(f"lxml parser failed: {e}. Falling back to html.parser.")
-            soup = BeautifulSoup(response.content, 'html.parser')
+        soup = get_soup(response.content)
 
         # Extract Title
         title_tag = soup.find('h1', class_='entry-title')

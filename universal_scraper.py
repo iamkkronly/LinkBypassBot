@@ -3,7 +3,8 @@ from bs4 import BeautifulSoup
 import re
 import sys
 import json
-from urllib.parse import urlparse, urljoin
+import base64
+from urllib.parse import urlparse, urljoin, parse_qs
 
 class UniversalScraper:
     def __init__(self):
@@ -12,6 +13,13 @@ class UniversalScraper:
         }
         self.session = requests.Session()
         self.session.headers.update(self.headers)
+
+    def _get_soup(self, content):
+        try:
+            return BeautifulSoup(content, 'lxml')
+        except Exception as e:
+            print(f"lxml parsing failed ({e}). Falling back to html.parser.")
+            return BeautifulSoup(content, 'html.parser')
 
     def scrape(self, url):
         """
@@ -24,8 +32,12 @@ class UniversalScraper:
             return self.handle_hubcloud(url)
         elif "hubdrive" in domain:
             return self.handle_hubdrive(url)
+        elif "hubcdn" in domain:
+            return self.handle_hubcdn(url)
         elif "gofile.io" in domain:
             return self.handle_gofile(url)
+        elif "vplink.in" in domain:
+            return self.handle_vplink(url)
         else:
             print(f"Unknown domain: {domain}. Trying generic scrape or Hdhub4u logic.")
             return self.handle_generic_movie_page(url)
@@ -37,11 +49,7 @@ class UniversalScraper:
             # Step 1: Fetch the initial HubCloud page
             response = self.session.get(url, allow_redirects=True)
             response.raise_for_status()
-            try:
-                soup = BeautifulSoup(response.content, 'lxml')
-            except Exception as e:
-                print(f"lxml parser failed: {e}. Falling back to html.parser.")
-                soup = BeautifulSoup(response.content, 'html.parser')
+            soup = self._get_soup(response.content)
 
             # Step 2: Find the "Generate Direct Download Link" or similar intermediate link
             # It usually points to gamerxyt.com or similar
@@ -64,11 +72,7 @@ class UniversalScraper:
                 # Step 3: Fetch the intermediate link (this will redirect to the final page, e.g., carnewz.site)
                 response = self.session.get(next_url, allow_redirects=True)
                 response.raise_for_status()
-                try:
-                    soup = BeautifulSoup(response.content, 'lxml')
-                except Exception as e:
-                    print(f"lxml parser failed: {e}. Falling back to html.parser.")
-                    soup = BeautifulSoup(response.content, 'html.parser')
+                soup = self._get_soup(response.content)
             else:
                 print("No intermediate link found. Checking current page for links.")
                 # If no intermediate link, maybe we are already on the page?
@@ -102,11 +106,7 @@ class UniversalScraper:
         try:
             response = self.session.get(url)
             response.raise_for_status()
-            try:
-                soup = BeautifulSoup(response.content, 'lxml')
-            except Exception as e:
-                print(f"lxml parser failed: {e}. Falling back to html.parser.")
-                soup = BeautifulSoup(response.content, 'html.parser')
+            soup = self._get_soup(response.content)
 
             # Look for "HubCloud Server" link
             hubcloud_link = None
@@ -144,6 +144,50 @@ class UniversalScraper:
             print(f"Error handling HubDrive: {e}")
             return []
 
+    def handle_hubcdn(self, url):
+        print("Detected HubCDN URL.")
+        try:
+            # Logic from hubcdn_bypasser.py
+            response = self.session.get(url, allow_redirects=True)
+            response.raise_for_status()
+
+            match = re.search(r'var\s+reurl\s*=\s*["\']([^"\']+)["\']', response.text)
+            if not match:
+                if 'hubcdn.fans/dl/' in response.url:
+                     final_url = response.url
+                else:
+                     print(f"Could not find redirect URL in {url}")
+                     return []
+            else:
+                redirect_url = match.group(1)
+                parsed_url = urlparse(redirect_url)
+                query_params = parse_qs(parsed_url.query)
+                if 'r' not in query_params:
+                    print(f"Could not find 'r' parameter in {redirect_url}")
+                    return []
+                r_param = query_params['r'][0]
+                try:
+                    decoded_url = base64.b64decode(r_param).decode('utf-8')
+                    final_url = decoded_url
+                except Exception as e:
+                    print(f"Error decoding base64: {e}")
+                    return []
+
+            response = self.session.get(final_url)
+            response.raise_for_status()
+            soup = self._get_soup(response.content)
+            a_tag = soup.find('a', id='vd')
+
+            if a_tag and a_tag.get('href'):
+                return [{'text': 'Direct Download', 'link': a_tag['href']}]
+            else:
+                print("Could not find direct download link (id='vd') on the page.")
+                return []
+
+        except Exception as e:
+            print(f"Error handling HubCDN: {e}")
+            return []
+
     def handle_gofile(self, url):
         print("Detected GoFile URL.")
         try:
@@ -179,23 +223,47 @@ class UniversalScraper:
             print(f"Error handling GoFile: {e}")
             return [{'text': 'GoFile Link', 'link': url}]
 
+    def handle_vplink(self, url):
+        print("Detected vplink.in URL.")
+        try:
+            # Import here to avoid top-level issues if file is missing
+            try:
+                from vplink_scraper import bypass_vplink
+            except ImportError:
+                print("vplink_scraper module not found.")
+                return []
+
+            result = bypass_vplink(url)
+            if result:
+                # The result might be another scrapable URL
+                print(f"Resolved vplink to: {result}")
+
+                # Check if it's a known domain and recurse
+                domain = urlparse(result).netloc
+                if "hubcloud" in domain or "hubdrive" in domain or "hubcdn" in domain or "gofile.io" in domain:
+                    return self.scrape(result)
+                else:
+                    return [{'text': 'Direct Link', 'link': result}]
+            else:
+                return []
+
+        except Exception as e:
+            print(f"Error handling vplink: {e}")
+            return []
+
     def handle_generic_movie_page(self, url):
         print("Attempting to scrape as movie page.")
         try:
             response = self.session.get(url)
             response.raise_for_status()
-            try:
-                soup = BeautifulSoup(response.content, 'lxml')
-            except Exception as e:
-                print(f"lxml parser failed: {e}. Falling back to html.parser.")
-                soup = BeautifulSoup(response.content, 'html.parser')
+            soup = self._get_soup(response.content)
 
             links = []
             for a_tag in soup.find_all('a', href=True):
                 text = a_tag.get_text().strip()
                 href = a_tag['href']
 
-                if any(q in text.lower() for q in ['480p', '720p', '1080p']):
+                if any(q in text.lower() for q in ['480p', '720p', '1080p', 'episode']):
                     links.append({'text': text, 'link': href})
 
             return links
