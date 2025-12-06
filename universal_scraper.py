@@ -3,7 +3,8 @@ from bs4 import BeautifulSoup
 import re
 import sys
 import json
-from urllib.parse import urlparse, urljoin
+import base64
+from urllib.parse import urlparse, urljoin, parse_qs
 
 class UniversalScraper:
     def __init__(self):
@@ -24,6 +25,8 @@ class UniversalScraper:
             return self.handle_hubcloud(url)
         elif "hubdrive" in domain:
             return self.handle_hubdrive(url)
+        elif "hubcdn" in domain:
+            return self.handle_hubcdn(url)
         elif "gofile.io" in domain:
             return self.handle_gofile(url)
         else:
@@ -130,6 +133,50 @@ class UniversalScraper:
 
         except Exception as e:
             print(f"Error handling HubDrive: {e}")
+            return []
+
+    def handle_hubcdn(self, url):
+        print("Detected HubCDN URL.")
+        try:
+            # Logic from hubcdn_bypasser.py
+            response = self.session.get(url, allow_redirects=True)
+            response.raise_for_status()
+
+            match = re.search(r'var\s+reurl\s*=\s*["\']([^"\']+)["\']', response.text)
+            if not match:
+                if 'hubcdn.fans/dl/' in response.url:
+                     final_url = response.url
+                else:
+                     print(f"Could not find redirect URL in {url}")
+                     return []
+            else:
+                redirect_url = match.group(1)
+                parsed_url = urlparse(redirect_url)
+                query_params = parse_qs(parsed_url.query)
+                if 'r' not in query_params:
+                    print(f"Could not find 'r' parameter in {redirect_url}")
+                    return []
+                r_param = query_params['r'][0]
+                try:
+                    decoded_url = base64.b64decode(r_param).decode('utf-8')
+                    final_url = decoded_url
+                except Exception as e:
+                    print(f"Error decoding base64: {e}")
+                    return []
+
+            response = self.session.get(final_url)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.content, 'lxml')
+            a_tag = soup.find('a', id='vd')
+
+            if a_tag and a_tag.get('href'):
+                return [{'text': 'Direct Download', 'link': a_tag['href']}]
+            else:
+                print("Could not find direct download link (id='vd') on the page.")
+                return []
+
+        except Exception as e:
+            print(f"Error handling HubCDN: {e}")
             return []
 
     def handle_gofile(self, url):
