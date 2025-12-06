@@ -179,7 +179,7 @@ class UniversalScraper:
                 text = a_tag.get_text().strip()
                 href = a_tag['href']
 
-                if any(q in text.lower() for q in ['480p', '720p', '1080p']):
+                if any(q in text.lower() for q in ['480p', '720p', '1080p', 'episode']):
                     links.append({'text': text, 'link': href})
 
             return links
