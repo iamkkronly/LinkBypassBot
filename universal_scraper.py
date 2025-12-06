@@ -73,11 +73,20 @@ class UniversalScraper:
                 href = a['href']
                 text = a.get_text().strip()
 
+                # Check for "Download" in text, often used for mirrors like FSL
+                is_download_btn = "download" in text.lower() or "btn-success" in str(a.get('class', []))
+
                 # Filter out navigation/ads
-                if any(x in href for x in ['pixeldrain', 'drive.google.com', 'mega.nz', '1fichier', 'gofile.io']):
-                    links.append({'text': text, 'link': href})
+                known_hosts = ['pixeldrain', 'drive.google.com', 'mega.nz', '1fichier', 'gofile.io', 'cdn.fsl-buckets', 'love.stranger-things.buzz']
+
+                if any(x in href for x in known_hosts):
+                     links.append({'text': text, 'link': href})
                 elif any(q in text.lower() for q in ['480p', '720p', '1080p', 'mkv', 'zip']):
                     if href.startswith('http'):
+                        links.append({'text': text, 'link': href})
+                elif is_download_btn and href.startswith('http') and not "how to download" in text.lower():
+                     # Avoid "How to Download" links
+                     if "login" not in href and "register" not in href:
                         links.append({'text': text, 'link': href})
 
             return links
