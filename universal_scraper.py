@@ -37,7 +37,11 @@ class UniversalScraper:
             # Step 1: Fetch the initial HubCloud page
             response = self.session.get(url, allow_redirects=True)
             response.raise_for_status()
-            soup = BeautifulSoup(response.content, 'lxml')
+            try:
+                soup = BeautifulSoup(response.content, 'lxml')
+            except Exception as e:
+                print(f"lxml parser failed: {e}. Falling back to html.parser.")
+                soup = BeautifulSoup(response.content, 'html.parser')
 
             # Step 2: Find the "Generate Direct Download Link" or similar intermediate link
             # It usually points to gamerxyt.com or similar
@@ -60,7 +64,11 @@ class UniversalScraper:
                 # Step 3: Fetch the intermediate link (this will redirect to the final page, e.g., carnewz.site)
                 response = self.session.get(next_url, allow_redirects=True)
                 response.raise_for_status()
-                soup = BeautifulSoup(response.content, 'lxml')
+                try:
+                    soup = BeautifulSoup(response.content, 'lxml')
+                except Exception as e:
+                    print(f"lxml parser failed: {e}. Falling back to html.parser.")
+                    soup = BeautifulSoup(response.content, 'html.parser')
             else:
                 print("No intermediate link found. Checking current page for links.")
                 # If no intermediate link, maybe we are already on the page?
@@ -94,7 +102,11 @@ class UniversalScraper:
         try:
             response = self.session.get(url)
             response.raise_for_status()
-            soup = BeautifulSoup(response.content, 'lxml')
+            try:
+                soup = BeautifulSoup(response.content, 'lxml')
+            except Exception as e:
+                print(f"lxml parser failed: {e}. Falling back to html.parser.")
+                soup = BeautifulSoup(response.content, 'html.parser')
 
             # Look for "HubCloud Server" link
             hubcloud_link = None
@@ -172,7 +184,11 @@ class UniversalScraper:
         try:
             response = self.session.get(url)
             response.raise_for_status()
-            soup = BeautifulSoup(response.content, 'lxml')
+            try:
+                soup = BeautifulSoup(response.content, 'lxml')
+            except Exception as e:
+                print(f"lxml parser failed: {e}. Falling back to html.parser.")
+                soup = BeautifulSoup(response.content, 'html.parser')
 
             links = []
             for a_tag in soup.find_all('a', href=True):
